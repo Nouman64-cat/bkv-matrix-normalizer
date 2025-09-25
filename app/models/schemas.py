@@ -1,7 +1,7 @@
 """Pydantic models for request/response schemas."""
 
 from typing import List, Dict, Any, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 
@@ -179,9 +179,7 @@ class ProcessedData(BaseModel):
     file_type: FileType
     processed_at: datetime
 
-    class Config:
-        # Allow extra fields for flexibility
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class ExcelProcessedData(ProcessedData):

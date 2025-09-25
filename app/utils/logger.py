@@ -1,4 +1,9 @@
-"""Logging configuration for the application."""
+"""Application logging configuration.
+
+Provides console + rotating file handlers. If LOG_FORMAT=json is configured but
+the optional dependency python-json-logger is missing, it falls back to the
+standard formatter instead of crashing application startup.
+"""
 
 import logging
 import logging.config
@@ -8,6 +13,14 @@ from typing import Dict, Any
 
 from app.core.config import get_settings
 
+try:
+    # Probe optional json logger dependency early so we can gracefully fallback
+    import pythonjsonlogger  # type: ignore  # noqa: F401
+
+    HAVE_JSON_LOGGER = True
+except Exception:  # pragma: no cover - defensive
+    HAVE_JSON_LOGGER = False
+
 
 def setup_logging() -> None:
     """Setup application logging configuration."""
@@ -16,6 +29,8 @@ def setup_logging() -> None:
     # Create logs directory
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
+
+    use_json = settings.LOG_FORMAT.lower() == "json" and HAVE_JSON_LOGGER
 
     # Logging configuration
     config: Dict[str, Any] = {
@@ -30,22 +45,29 @@ def setup_logging() -> None:
                 "format": "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S",
             },
-            "json": {
-                "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
-                "format": "%(asctime)s %(name)s %(levelname)s %(filename)s %(lineno)d %(funcName)s %(message)s",
-            },
+            # Only include json formatter if dependency present
+            **(
+                {
+                    "json": {
+                        "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+                        "format": "%(asctime)s %(name)s %(levelname)s %(filename)s %(lineno)d %(funcName)s %(message)s",
+                    }
+                }
+                if HAVE_JSON_LOGGER
+                else {}
+            ),
         },
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
                 "level": settings.LOG_LEVEL,
-                "formatter": "default" if settings.LOG_FORMAT != "json" else "json",
+                "formatter": "json" if use_json else "default",
                 "stream": sys.stdout,
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "level": "INFO",
-                "formatter": "detailed" if settings.LOG_FORMAT != "json" else "json",
+                "formatter": "json" if use_json else "detailed",
                 "filename": str(logs_dir / "app.log"),
                 "maxBytes": 10485760,  # 10MB
                 "backupCount": 5,
@@ -54,7 +76,7 @@ def setup_logging() -> None:
             "error_file": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "level": "ERROR",
-                "formatter": "detailed" if settings.LOG_FORMAT != "json" else "json",
+                "formatter": "json" if use_json else "detailed",
                 "filename": str(logs_dir / "error.log"),
                 "maxBytes": 10485760,  # 10MB
                 "backupCount": 5,
@@ -82,8 +104,23 @@ def setup_logging() -> None:
         "root": {"level": settings.LOG_LEVEL, "handlers": ["console"]},
     }
 
-    # Apply configuration
-    logging.config.dictConfig(config)
+    # Apply configuration with fallback if json formatter still misconfigured
+    try:
+        logging.config.dictConfig(config)
+    except Exception:
+        # Fallback: force plain text formatters
+        for handler in ("console", "file", "error_file"):
+            if handler in config["handlers"]:
+                config["handlers"][handler]["formatter"] = (
+                    "detailed" if handler != "console" else "default"
+                )
+        config["formatters"].pop("json", None)
+        logging.config.dictConfig(config)
+
+    if settings.LOG_FORMAT.lower() == "json" and not HAVE_JSON_LOGGER:
+        logging.getLogger("app").warning(
+            "LOG_FORMAT=json requested but python-json-logger not installed. Using text format."
+        )
 
     # Set logging level for third-party libraries
     logging.getLogger("pandas").setLevel(logging.WARNING)

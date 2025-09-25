@@ -52,7 +52,7 @@ class FileValidator:
             if not self._validate_extension(file.filename):
                 return (
                     False,
-                    f"File type not allowed. Allowed types: {', '.join(self.settings.ALLOWED_EXTENSIONS)}",
+                    f"File type not allowed. Allowed types: {', '.join(self.settings.allowed_extensions_set)}",
                 )
 
             # Check MIME type
@@ -82,7 +82,7 @@ class FileValidator:
             return False
 
         file_ext = Path(filename).suffix.lower()
-        return file_ext in self.settings.ALLOWED_EXTENSIONS
+        return file_ext in self.settings.allowed_extensions_set
 
     def _validate_mime_type(self, file: UploadFile) -> bool:
         """Validate MIME type."""

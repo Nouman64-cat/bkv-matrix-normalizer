@@ -1,8 +1,14 @@
-"""Application configuration using Pydantic BaseSettings."""
+"""Application configuration using Pydantic BaseSettings (Pydantic v2).
+
+Notes:
+ - List/Set like values provided through environment variables are stored as comma
+     separated strings and exposed through convenience properties that parse them.
+ - The upload folder is ensured to exist via a field validator (mode="before").
+"""
 
 from typing import List, Set
-from pydantic import BaseSettings, validator
-import os
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
 from pathlib import Path
 
 
@@ -27,16 +33,14 @@ class Settings(BaseSettings):
     # File Upload Settings
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     UPLOAD_FOLDER: str = "static/uploads"
-    ALLOWED_EXTENSIONS: Set[str] = {".xlsx", ".csv"}
-    OUTPUT_FORMATS: List[str] = ["json", "jsonl"]
+    ALLOWED_EXTENSIONS: str = ".xlsx,.csv"
+    OUTPUT_FORMATS: str = "json,jsonl"
     TEMP_FILE_RETENTION: int = 3600  # 1 hour
 
     # CORS Settings
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000"
+    )
 
     # Processing Settings
     MAX_ROWS_PREVIEW: int = 100
@@ -50,33 +54,32 @@ class Settings(BaseSettings):
     # Security
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    @validator("ALLOWED_EXTENSIONS", pre=True)
-    def parse_extensions(cls, v):
-        """Parse comma-separated extensions from environment variable."""
-        if isinstance(v, str):
-            return {ext.strip() for ext in v.split(",") if ext.strip()}
-        return v
+    @property
+    def allowed_extensions_set(self) -> Set[str]:
+        """Get allowed extensions as a set."""
+        return {
+            ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()
+        }
 
-    @validator("OUTPUT_FORMATS", pre=True)
-    def parse_formats(cls, v):
-        """Parse comma-separated formats from environment variable."""
-        if isinstance(v, str):
-            return [fmt.strip() for fmt in v.split(",") if fmt.strip()]
-        return v
+    @property
+    def output_formats_list(self) -> List[str]:
+        """Get output formats as a list."""
+        return [fmt.strip() for fmt in self.OUTPUT_FORMATS.split(",") if fmt.strip()]
 
-    @validator("CORS_ORIGINS", pre=True)
-    def parse_cors_origins(cls, v):
-        """Parse comma-separated CORS origins from environment variable."""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Get CORS origins as a list."""
+        return [
+            origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()
+        ]
 
-    @validator("UPLOAD_FOLDER")
-    def create_upload_folder(cls, v):
-        """Ensure upload folder exists."""
-        upload_path = Path(v)
-        upload_path.mkdir(parents=True, exist_ok=True)
-        return str(upload_path)
+    @field_validator("UPLOAD_FOLDER", mode="before")
+    @classmethod
+    def validate_upload_folder(cls, v: str):  # type: ignore[override]
+        """Ensure upload folder exists before assigning the value."""
+        path = Path(v)
+        path.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     @property
     def upload_path(self) -> Path:
@@ -93,10 +96,11 @@ class Settings(BaseSettings):
         """Check if running in production mode."""
         return self.ENVIRONMENT.lower() == "production"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+    }
 
 
 # Global settings instance

@@ -274,7 +274,7 @@ class JSONGenerator:
         Returns:
             True if format is supported
         """
-        return output_format.lower() in self.settings.OUTPUT_FORMATS
+        return output_format.lower() in self.settings.output_formats_list
 
     def get_supported_formats(self) -> List[str]:
         """
@@ -283,7 +283,7 @@ class JSONGenerator:
         Returns:
             List of supported formats
         """
-        return self.settings.OUTPUT_FORMATS.copy()
+        return self.settings.output_formats_list.copy()
 
     def get_format_info(self, output_format: str) -> Dict[str, Any]:
         """
