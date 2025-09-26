@@ -11,3 +11,4 @@ logs/
 # Data interchange
 *.csv
 *.json
+*.jsonl
