@@ -141,7 +141,7 @@ async def root(request: Request):
     """Root endpoint - serves upload page if templates exist, otherwise JSON response."""
     if templates_path.exists():
         return templates.TemplateResponse(
-            "upload.html", {"request": request, "title": settings.PROJECT_NAME}
+            "upload.html", {"request": request, "title": settings.PROJECT_NAME, "settings": settings}
         )
     else:
         return {

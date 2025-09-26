@@ -1,0 +1,65 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<section class="card">
+    <h2>Upload a File</h2>
+    <form id="upload-form" class="form-grid">
+        <div class="form-field">
+            <label for="file-input">Select spreadsheet (.xlsx or .csv)</label>
+            <input type="file" id="file-input" name="file" accept=".xlsx,.csv" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn primary">Upload</button>
+        </div>
+    </form>
+    <div id="upload-status" class="status" role="status" aria-live="polite"></div>
+</section>
+
+<section id="file-actions" class="card hidden" aria-hidden="true">
+    <h2>Next Steps</h2>
+    <div class="form-grid">
+        <div class="form-field">
+            <label for="preview-rows">Preview row limit</label>
+            <input type="number" id="preview-rows" name="preview_rows" min="1" max="1000" value="50">
+        </div>
+        <div class="form-actions">
+            <button id="preview-button" class="btn">Preview File</button>
+        </div>
+    </div>
+
+    <form id="convert-form" class="form-grid">
+        <div class="form-field">
+            <label for="output-format">Output format</label>
+            <select id="output-format" name="output_format">
+                <option value="json">JSON</option>
+                <option value="jsonl">JSON Lines</option>
+            </select>
+        </div>
+        <div class="form-field checkbox">
+            <label><input type="checkbox" id="include-metadata" checked> Include metadata</label>
+        </div>
+        <div class="form-field checkbox">
+            <label><input type="checkbox" id="pretty-print" checked> Pretty print output</label>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn accent">Start Conversion</button>
+        </div>
+    </form>
+</section>
+
+<section id="preview-section" class="card hidden" aria-hidden="true">
+    <div class="section-header">
+        <h2>Preview</h2>
+        <button id="close-preview" class="btn link" type="button">Hide Preview</button>
+    </div>
+    <div id="preview-output" class="preview-output"></div>
+</section>
+
+<section id="conversion-status" class="card hidden" aria-hidden="true">
+    <h2>Conversion Status</h2>
+    <div id="conversion-output" class="status" role="status" aria-live="polite"></div>
+    <div id="download-section" class="download hidden" aria-hidden="true">
+        <a id="download-link" class="btn primary" href="#" download>Download Converted File</a>
+    </div>
+</section>
+{% endblock %}

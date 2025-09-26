@@ -1,1 +1,13 @@
 .env
+*.pyc
+logs/
+
+# Log files
+*.log
+
+# Spreadsheets
+*.xlsx
+
+# Data interchange
+*.csv
+*.json

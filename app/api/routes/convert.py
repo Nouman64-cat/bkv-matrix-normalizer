@@ -158,10 +158,11 @@ async def convert_file(
 
         # Create conversion job
         job_id = str(uuid.uuid4())
+        output_format = getattr(request.output_format, "value", request.output_format)
         jobs[job_id] = {
             "job_id": job_id,
             "file_id": file_id,
-            "output_format": request.output_format,
+            "output_format": output_format,
             "status": "pending",
             "created_at": datetime.now(timezone.utc),
             "file_path": file_path,
@@ -255,12 +256,19 @@ async def process_conversion(job_id: str, request: ConvertRequest):
             raise ConversionError(f"Unsupported file type: {job['file_type']}")
 
         # Generate output
+        output_format = job.get("output_format")
+        if hasattr(output_format, "value"):
+            output_format = output_format.value
+            job["output_format"] = output_format
+        if not output_format:
+            output_format = getattr(request.output_format, "value", request.output_format)
+            job["output_format"] = output_format
         output_content = json_generator.generate_json(
-            processed_data, request.output_format
+            processed_data, output_format
         )
 
         # Save output file
-        output_filename = f"{job['file_id']}_converted.{request.output_format}"
+        output_filename = f"{job['file_id']}_converted.{output_format}"
         output_path = Path("static/uploads") / output_filename
 
         with open(output_path, "w", encoding="utf-8") as f:
