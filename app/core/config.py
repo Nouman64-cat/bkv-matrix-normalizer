@@ -6,7 +6,7 @@ Notes:
  - The upload folder is ensured to exist via a field validator (mode="before").
 """
 
-from typing import List, Set
+from typing import List, Set, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Application Info
     PROJECT_NAME: str = "BKV Matrix Normalizer"
     VERSION: str = "0.1.0"
-    DESCRIPTION: str = "A FastAPI application for converting Excel/CSV to JSON/JSONL"
+    DESCRIPTION: str = "A FastAPI application for converting Excel/CSV/TSV/JSON to JSON/JSONL/CSV"
 
     # API Configuration
     API_V1_STR: str = "/api/v1"
@@ -31,10 +31,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # File Upload Settings
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
+    MAX_FILE_SIZE: Optional[int] = None  # Unlimited by default
     UPLOAD_FOLDER: str = "static/uploads"
-    ALLOWED_EXTENSIONS: str = ".xlsx,.csv"
-    OUTPUT_FORMATS: str = "json,jsonl"
+    ALLOWED_EXTENSIONS: str = ".xlsx,.csv,.tsv,.json"
+    OUTPUT_FORMATS: str = "json,jsonl,csv"
     TEMP_FILE_RETENTION: int = 3600  # 1 hour
 
     # CORS Settings

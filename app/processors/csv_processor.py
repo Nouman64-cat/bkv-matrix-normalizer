@@ -1,4 +1,4 @@
-"""CSV file processor for converting CSV files to structured data."""
+"""Delimited text file processor for converting CSV/TSV files to structured data."""
 
 import pandas as pd
 import csv
@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class CSVProcessor:
-    """Processes CSV files and converts them to structured data."""
+    """Processes delimited text files (CSV/TSV) and converts them to structured data."""
 
     def __init__(self):
         self.settings = get_settings()
 
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
-        Process CSV file and extract structured data.
+        Process delimited text file and extract structured data.
 
         Args:
             file_content: Raw file content as bytes
@@ -33,24 +33,30 @@ class CSVProcessor:
             Dictionary containing processed data and metadata
         """
         try:
-            logger.info(f"Processing CSV file: {filename}")
+            file_ext = Path(filename).suffix.lower().lstrip(".") or "csv"
+            if file_ext not in {"csv", "tsv"}:
+                file_ext = "csv"
+
+            logger.info(f"Processing {file_ext.upper()} file: {filename}")
 
             # Detect encoding
             encoding = self._detect_encoding(file_content)
             logger.info(f"Detected encoding: {encoding}")
 
-            # Decode content
-            text_content = file_content.decode(encoding)
+            # Decode content with fallback
+            try:
+                text_content = file_content.decode(encoding)
+            except (LookupError, UnicodeDecodeError):
+                text_content = file_content.decode("utf-8", errors="ignore")
 
             # Detect delimiter
             delimiter = self._detect_delimiter(text_content)
             logger.info(f"Detected delimiter: '{delimiter}'")
 
-            # Read CSV with pandas
+            # Read text with pandas
             df = pd.read_csv(
                 StringIO(text_content),
                 delimiter=delimiter,
-                encoding=encoding,
                 keep_default_na=False,
                 na_values=["", "NA", "N/A", "null", "NULL", "None"],
             )
@@ -70,7 +76,7 @@ class CSVProcessor:
             # Return structured result
             return {
                 "filename": filename,
-                "file_type": "csv",
+                "file_type": file_ext,
                 "data": processed_data,
                 "headers": df.columns.tolist(),
                 "row_count": len(processed_data),
@@ -81,8 +87,8 @@ class CSVProcessor:
             }
 
         except Exception as e:
-            logger.error(f"Failed to process CSV file {filename}: {str(e)}")
-            raise FileProcessingError(f"CSV processing failed: {str(e)}")
+            logger.error(f"Failed to process delimited file {filename}: {str(e)}")
+            raise FileProcessingError(f"Delimited text processing failed: {str(e)}")
 
     def _detect_encoding(self, file_content: bytes) -> str:
         """
@@ -254,7 +260,7 @@ class CSVProcessor:
         self, file_content: bytes, filename: str, max_rows: int = None
     ) -> Dict[str, Any]:
         """
-        Get a preview of the CSV file data.
+        Get a preview of the delimited text file data.
 
         Args:
             file_content: Raw file content as bytes
@@ -267,18 +273,24 @@ class CSVProcessor:
         max_rows = max_rows or self.settings.MAX_ROWS_PREVIEW
 
         try:
-            logger.info(f"Generating preview for CSV file: {filename}")
+            file_ext = Path(filename).suffix.lower().lstrip(".") or "csv"
+            if file_ext not in {"csv", "tsv"}:
+                file_ext = "csv"
+
+            logger.info(f"Generating preview for {file_ext.upper()} file: {filename}")
 
             # Detect encoding and delimiter
             encoding = self._detect_encoding(file_content)
-            text_content = file_content.decode(encoding)
+            try:
+                text_content = file_content.decode(encoding)
+            except (LookupError, UnicodeDecodeError):
+                text_content = file_content.decode("utf-8", errors="ignore")
             delimiter = self._detect_delimiter(text_content)
 
             # Read limited rows for preview
             df = pd.read_csv(
                 StringIO(text_content),
                 delimiter=delimiter,
-                encoding=encoding,
                 nrows=max_rows,
                 keep_default_na=False,
                 na_values=["", "NA", "N/A", "null", "NULL", "None"],
@@ -297,11 +309,11 @@ class CSVProcessor:
                 preview_data.append(row_data)
 
             # Get total row count
-            total_rows = sum(1 for _ in StringIO(text_content)) - 1  # Subtract header
+            total_rows = max(sum(1 for _ in StringIO(text_content)) - 1, 0)
 
             return {
                 "filename": filename,
-                "file_type": "csv",
+                "file_type": file_ext,
                 "headers": df.columns.tolist(),
                 "preview_data": preview_data,
                 "total_rows": total_rows,

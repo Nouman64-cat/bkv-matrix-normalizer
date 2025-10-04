@@ -5,8 +5,8 @@
     <h2>Upload a File</h2>
     <form id="upload-form" class="form-grid">
         <div class="form-field">
-            <label for="file-input">Select spreadsheet (.xlsx or .csv)</label>
-            <input type="file" id="file-input" name="file" accept=".xlsx,.csv" required>
+            <label for="file-input">Select data file (.xlsx, .csv, .tsv, or .json)</label>
+            <input type="file" id="file-input" name="file" accept=".xlsx,.csv,.tsv,.json" required>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn primary">Upload</button>
@@ -33,6 +33,7 @@
             <select id="output-format" name="output_format">
                 <option value="json">JSON</option>
                 <option value="jsonl">JSON Lines</option>
+                <option value="csv">CSV</option>
             </select>
         </div>
         <div class="form-field checkbox">

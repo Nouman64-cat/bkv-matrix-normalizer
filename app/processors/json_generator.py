@@ -1,5 +1,6 @@
-"""JSON/JSONL generator for converting processed data to output formats."""
+"""Data exporter for generating JSON, JSONL, and CSV outputs."""
 
+import csv
 import json
 import jsonlines
 from typing import Dict, List, Any, Optional, Union
@@ -20,34 +21,42 @@ class JSONGenerator:
     def __init__(self):
         self.settings = get_settings()
 
-    def generate_json(
+    def generate_output(
         self, processed_data: Dict[str, Any], output_format: str = "json"
     ) -> str:
         """
-        Generate JSON or JSONL string from processed data.
+        Generate the requested output string from processed data.
 
         Args:
             processed_data: Processed data from Excel/CSV processor
-            output_format: Output format ('json' or 'jsonl')
+            output_format: Output format ('json', 'jsonl', or 'csv')
 
         Returns:
-            Generated JSON/JSONL string
+            Generated content string
         """
         try:
             logger.info(f"Generating {output_format.upper()} from processed data")
 
-            if output_format.lower() == "json":
+            fmt = output_format.lower()
+            if fmt == "json":
                 return self._generate_json_format(processed_data)
-            elif output_format.lower() == "jsonl":
+            if fmt == "jsonl":
                 return self._generate_jsonl_format(processed_data)
-            else:
-                raise ConversionError(f"Unsupported output format: {output_format}")
+            if fmt == "csv":
+                return self._generate_csv_format(processed_data)
+            raise ConversionError(f"Unsupported output format: {output_format}")
 
         except Exception as e:
             logger.error(f"Failed to generate {output_format}: {str(e)}")
             raise ConversionError(
                 f"{output_format.upper()} generation failed: {str(e)}"
             )
+
+    def generate_json(
+        self, processed_data: Dict[str, Any], output_format: str = "json"
+    ) -> str:
+        """Backward-compatible wrapper around generate_output."""
+        return self.generate_output(processed_data, output_format)
 
     def _generate_json_format(self, processed_data: Dict[str, Any]) -> str:
         """
@@ -88,8 +97,8 @@ class JSONGenerator:
                         "data": sheet_data.get("data", []),
                     }
 
-            # Handle CSV files (single sheet)
-            elif processed_data.get("file_type") == "csv":
+            # Handle CSV/TSV files (single sheet)
+            elif processed_data.get("file_type") in {"csv", "tsv"}:
                 output["metadata"]["row_count"] = processed_data.get("row_count", 0)
                 output["metadata"]["column_count"] = processed_data.get(
                     "column_count", 0
@@ -172,8 +181,8 @@ class JSONGenerator:
                             )
                         )
 
-            # Handle CSV files (single sheet)
-            elif processed_data.get("file_type") == "csv":
+            # Handle CSV/TSV files (single sheet)
+            elif processed_data.get("file_type") in {"csv", "tsv"}:
                 metadata["row_count"] = processed_data.get("row_count", 0)
                 metadata["column_count"] = processed_data.get("column_count", 0)
                 metadata["headers"] = processed_data.get("headers", [])
@@ -201,6 +210,51 @@ class JSONGenerator:
         except Exception as e:
             raise ConversionError(f"JSONL formatting failed: {str(e)}")
 
+    def _generate_csv_format(self, processed_data: Dict[str, Any]) -> str:
+        """Generate CSV format for tabular processed data."""
+        records = processed_data.get("data")
+        if records is None:
+            sheets = processed_data.get("sheets")
+            if sheets:
+                raise ConversionError("CSV output is not supported for multi-sheet Excel files")
+            records = []
+
+        if not isinstance(records, list):
+            raise ConversionError("Processed data does not contain tabular records")
+
+        headers = processed_data.get("headers") or sorted({
+            key
+            for record in records
+            if isinstance(record, dict)
+            for key in record.keys()
+        })
+
+        if not headers:
+            headers = ["value"]
+            records = [record if isinstance(record, dict) else {"value": record} for record in records]
+
+        buffer = StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=headers, extrasaction="ignore")
+        writer.writeheader()
+
+        for record in records:
+            row = {header: self._format_csv_value(record.get(header)) for header in headers}
+            writer.writerow(row)
+
+        return buffer.getvalue()
+
+    def _format_csv_value(self, value: Any) -> Any:
+        """Format cell values for CSV export."""
+        if value is None:
+            return ""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value
+        if isinstance(value, (list, dict)):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
     def _json_serializer(self, obj: Any) -> Any:
         """
         Custom JSON serializer for handling special types.
@@ -227,11 +281,11 @@ class JSONGenerator:
         output_path: Optional[Path] = None,
     ) -> Path:
         """
-        Generate JSON/JSONL file and save to disk.
+        Generate an output file and save it to disk.
 
         Args:
-            processed_data: Processed data from Excel/CSV processor
-            output_format: Output format ('json' or 'jsonl')
+            processed_data: Processed data from Excel/CSV/JSON processors
+            output_format: Output format ('json', 'jsonl', or 'csv')
             output_path: Optional output file path
 
         Returns:
@@ -239,13 +293,13 @@ class JSONGenerator:
         """
         try:
             # Generate content
-            content = self.generate_json(processed_data, output_format)
+            content = self.generate_output(processed_data, output_format)
 
             # Determine output path
             if not output_path:
                 filename = processed_data.get("filename", "output")
                 base_name = Path(filename).stem
-                extension = "json" if output_format.lower() == "json" else "jsonl"
+                extension = output_format.lower()
                 output_path = (
                     self.settings.upload_path / f"{base_name}_converted.{extension}"
                 )
@@ -253,8 +307,11 @@ class JSONGenerator:
             # Ensure directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write file
-            with open(output_path, "w", encoding="utf-8") as f:
+            write_kwargs = {"encoding": "utf-8"}
+            if output_format.lower() == "csv":
+                write_kwargs["newline"] = ""
+
+            with open(output_path, "w", **write_kwargs) as f:
                 f.write(content)
 
             logger.info(f"Generated {output_format.upper()} file: {output_path}")

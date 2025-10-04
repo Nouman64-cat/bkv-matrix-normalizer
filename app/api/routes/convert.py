@@ -21,6 +21,7 @@ from app.models.schemas import (
 )
 from app.processors.excel_processor import excel_processor
 from app.processors.csv_processor import csv_processor
+from app.processors.json_processor import json_processor
 from app.processors.json_generator import json_generator
 from app.utils.logger import get_logger
 
@@ -76,8 +77,10 @@ async def preview_file(
             preview_data = excel_processor.get_preview(
                 content, file_path.name, max_rows
             )
-        elif file_type == "csv":
+        elif file_type in {"csv", "tsv"}:
             preview_data = csv_processor.get_preview(content, file_path.name, max_rows)
+        elif file_type == "json":
+            preview_data = json_processor.get_preview(content, file_path.name, max_rows)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -250,8 +253,10 @@ async def process_conversion(job_id: str, request: ConvertRequest):
             processed_data = excel_processor.process_file(
                 content, job["file_path"].name
             )
-        elif job["file_type"] == "csv":
+        elif job["file_type"] in {"csv", "tsv"}:
             processed_data = csv_processor.process_file(content, job["file_path"].name)
+        elif job["file_type"] == "json":
+            processed_data = json_processor.process_file(content, job["file_path"].name)
         else:
             raise ConversionError(f"Unsupported file type: {job['file_type']}")
 
@@ -263,7 +268,7 @@ async def process_conversion(job_id: str, request: ConvertRequest):
         if not output_format:
             output_format = getattr(request.output_format, "value", request.output_format)
             job["output_format"] = output_format
-        output_content = json_generator.generate_json(
+        output_content = json_generator.generate_output(
             processed_data, output_format
         )
 

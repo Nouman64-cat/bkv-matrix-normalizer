@@ -53,9 +53,9 @@ BKV Matrix Normalizer is designed to streamline the process of converting tabula
 
 ## 📋 Features
 
-- ✅ **Multi-format Support**: Process both .xlsx and .csv files
+- ✅ **Multi-format Support**: Process .xlsx, .csv, .tsv, and .json files
 - ✅ **Intelligent Parsing**: Automatic data type detection and conversion
-- ✅ **Flexible Output**: Generate JSON or JSONL format
+- ✅ **Flexible Output**: Generate JSON, JSONL, or CSV format
 - ✅ **Data Validation**: Input validation and error handling
 - ✅ **Web Interface**: User-friendly upload and download interface
 - ✅ **Batch Processing**: Handle multiple files simultaneously
@@ -206,7 +206,7 @@ copy .env.example .env
 
 # Edit .env file with your settings
 # ENVIRONMENT=development
-# MAX_FILE_SIZE=10485760
+# MAX_FILE_SIZE=52428800  # Optional file size limit in bytes (50MB example)
 # UPLOAD_FOLDER=static/uploads
 # API_V1_STR=/api/v1
 # PROJECT_NAME=BKV Matrix Normalizer
@@ -266,14 +266,15 @@ GET  /api/v1/health                 # Application health status
 
 ```python
 # app/core/config.py
+from typing import Optional
 from pydantic import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "BKV Matrix Normalizer"
     API_V1_STR: str = "/api/v1"
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_EXTENSIONS: set = {'.xlsx', '.csv'}
-    OUTPUT_FORMATS: list = ['json', 'jsonl']
+    MAX_FILE_SIZE: Optional[int] = None  # Unlimited by default
+    ALLOWED_EXTENSIONS: set = {'.xlsx', '.csv', '.tsv'}
+    OUTPUT_FORMATS: list = ['json', 'jsonl', 'csv']
     UPLOAD_FOLDER: str = "static/uploads"
     TEMP_FILE_RETENTION: int = 3600  # 1 hour
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]
@@ -352,8 +353,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **File Upload Fails**
 
-- Check file size (max 10MB)
-- Verify file format (.xlsx or .csv)
+- Check file size if you set a MAX_FILE_SIZE limit
+- Verify file format (.xlsx, .csv, .tsv, or .json)
 - Ensure proper file permissions
 
 **Conversion Errors**
@@ -377,7 +378,7 @@ For support and questions:
 
 ## 🗺 Roadmap
 
-- [ ] Support for additional file formats (ODS, TSV)
+- [ ] Support for additional file formats (ODS)
 - [ ] Advanced data transformation rules
 - [ ] API rate limiting and authentication
 - [ ] Docker containerization

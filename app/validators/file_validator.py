@@ -2,6 +2,9 @@
 
 import os
 import mimetypes
+import csv
+import json
+from io import StringIO
 from pathlib import Path
 from typing import Optional, Tuple
 from fastapi import UploadFile
@@ -24,6 +27,8 @@ class FileValidator:
                 "application/vnd.ms-excel",
             ],
             ".csv": ["text/csv", "application/csv", "text/plain"],
+            ".tsv": ["text/tab-separated-values", "application/tab-separated-values", "text/plain"],
+            ".json": ["application/json", "text/json", "application/octet-stream"],
         }
 
     async def validate_file(self, file: UploadFile) -> Tuple[bool, Optional[str]]:
@@ -43,16 +48,20 @@ class FileValidator:
 
             # Check file size
             if not await self._validate_size(file):
+                max_size = self.settings.MAX_FILE_SIZE
+                limit_text = (
+                    f"{max_size:,} bytes" if isinstance(max_size, int) and max_size > 0 else "configured limit"
+                )
                 return (
                     False,
-                    f"File size exceeds maximum allowed size of {self.settings.MAX_FILE_SIZE} bytes",
+                    f"File size exceeds maximum allowed size of {limit_text}",
                 )
 
             # Check file extension
             if not self._validate_extension(file.filename):
                 return (
                     False,
-                    f"File type not allowed. Allowed types: {', '.join(self.settings.allowed_extensions_set)}",
+                    f"File type not allowed. Allowed types: {', '.join(sorted(self.settings.allowed_extensions_set))}",
                 )
 
             # Check MIME type
@@ -70,11 +79,14 @@ class FileValidator:
 
     async def _validate_size(self, file: UploadFile) -> bool:
         """Validate file size."""
-        # Read file to check size
         content = await file.read()
         await file.seek(0)  # Reset file pointer
 
-        return len(content) <= self.settings.MAX_FILE_SIZE
+        max_size = self.settings.MAX_FILE_SIZE
+        if max_size is None or max_size <= 0:
+            return True
+
+        return len(content) <= max_size
 
     def _validate_extension(self, filename: Optional[str]) -> bool:
         """Validate file extension."""
@@ -118,13 +130,37 @@ class FileValidator:
 
             if file_ext == ".xlsx":
                 return self._validate_excel_content(content)
-            elif file_ext == ".csv":
-                return self._validate_csv_content(content)
+            if file_ext in {".csv", ".tsv"}:
+                return self._validate_tabular_content(content)
+            if file_ext == ".json":
+                return self._validate_json_content(content)
 
             return False
 
         except Exception:
             return False
+
+    def _decode_text_content(self, content: bytes) -> str:
+        """Decode text content with fallback encodings."""
+        for encoding in ("utf-8", "utf-8-sig", "utf-16", "utf-16le", "utf-16be", "latin-1"):
+            try:
+                return content.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return content.decode("utf-8", errors="ignore")
+
+    def _detect_delimiter(self, text_content: str) -> str:
+        """Detect delimiter in delimited text content."""
+        sample = text_content[:2048]
+        try:
+            sniffer = csv.Sniffer()
+            dialect = sniffer.sniff(sample, delimiters=",;	|")
+            return dialect.delimiter
+        except csv.Error:
+            counts = {d: sample.count(d) for d in [",", "	", ";", "|"]}
+            if counts:
+                return max(counts, key=counts.get)
+            return ","
 
     def _validate_excel_content(self, content: bytes) -> bool:
         """Validate Excel file content."""
@@ -157,32 +193,31 @@ class FileValidator:
         except Exception:
             return False
 
-    def _validate_csv_content(self, content: bytes) -> bool:
-        """Validate CSV file content."""
+    def _validate_json_content(self, content: bytes) -> bool:
+        """Validate JSON file content."""
         try:
-            # Try to decode content
-            text_content = content.decode("utf-8")
+            text_content = self._decode_text_content(content)
+            data = json.loads(text_content)
+            return isinstance(data, (dict, list))
+        except Exception:
+            return False
 
-            # Try to read with pandas
-            from io import StringIO
+    def _validate_tabular_content(self, content: bytes) -> bool:
+        """Validate delimited text file content."""
+        try:
+            text_content = self._decode_text_content(content)
+            delimiter = self._detect_delimiter(text_content)
 
             df = pd.read_csv(
-                StringIO(text_content), nrows=5
-            )  # Read only first 5 rows for validation
+                StringIO(text_content),
+                delimiter=delimiter,
+                nrows=5,
+                keep_default_na=False,
+                na_values=["", "NA", "N/A", "null", "NULL", "None"],
+            )
 
-            # Check if DataFrame has any data
             return not df.empty and len(df.columns) > 0
 
-        except UnicodeDecodeError:
-            # Try different encodings
-            try:
-                text_content = content.decode("latin-1")
-                from io import StringIO
-
-                df = pd.read_csv(StringIO(text_content), nrows=5)
-                return not df.empty and len(df.columns) > 0
-            except Exception:
-                return False
         except Exception:
             return False
 

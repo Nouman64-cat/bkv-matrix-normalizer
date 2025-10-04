@@ -11,6 +11,7 @@ class OutputFormat(str, Enum):
 
     JSON = "json"
     JSONL = "jsonl"
+    CSV = "csv"
 
 
 class FileType(str, Enum):
@@ -18,6 +19,8 @@ class FileType(str, Enum):
 
     XLSX = "xlsx"
     CSV = "csv"
+    TSV = "tsv"
+    JSON = "json"
 
 
 class FileInfo(BaseModel):
@@ -73,7 +76,7 @@ class ExcelPreviewResponse(BaseModel):
 
 
 class CSVPreviewResponse(BaseModel):
-    """CSV file preview response model."""
+    """CSV/TSV file preview response model."""
 
     filename: str
     file_type: FileType
@@ -191,7 +194,7 @@ class ExcelProcessedData(ProcessedData):
 
 
 class CSVProcessedData(ProcessedData):
-    """CSV processed data model."""
+    """Delimited text (CSV/TSV) processed data model."""
 
     data: List[Dict[str, Any]]
     headers: List[str]

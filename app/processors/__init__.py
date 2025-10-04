@@ -1,1 +1,1 @@
-"""Data processors for Excel and CSV files."""
+"""Data processors for Excel, CSV/TSV, and JSON files."""

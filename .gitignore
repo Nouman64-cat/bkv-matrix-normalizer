@@ -10,5 +10,8 @@ logs/
 
 # Data interchange
 *.csv
+*.tsv
 *.json
 *.jsonl
+
+venv

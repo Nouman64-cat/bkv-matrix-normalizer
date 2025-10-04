@@ -30,7 +30,7 @@ async def upload_file(
     """
     Upload a file for processing.
 
-    - **file**: Excel (.xlsx) or CSV file to upload
+    - **file**: Excel (.xlsx), CSV/TSV, or JSON file to upload
 
     Returns file ID and metadata for further processing.
     """

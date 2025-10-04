@@ -30,7 +30,7 @@ async def download_converted_file(
 
         # Look for converted files
         download_path = None
-        for format_ext in ["json", "jsonl"]:
+        for format_ext in ["json", "jsonl", "csv"]:
             potential_path = settings.upload_path / f"{file_id}_converted.{format_ext}"
             if potential_path.exists():
                 download_path = potential_path
@@ -46,11 +46,12 @@ async def download_converted_file(
             )
 
         # Determine content type
-        content_type = (
-            "application/json"
-            if download_path.suffix == ".json"
-            else "application/jsonl"
-        )
+        if download_path.suffix == ".json":
+            content_type = "application/json"
+        elif download_path.suffix == ".jsonl":
+            content_type = "application/jsonl"
+        else:
+            content_type = "text/csv"
 
         return FileResponse(
             path=download_path, filename=download_path.name, media_type=content_type
@@ -78,7 +79,7 @@ async def get_download_info(file_id: str, settings: Settings = Depends(get_setti
     try:
         # Look for converted files
         download_path = None
-        for format_ext in ["json", "jsonl"]:
+        for format_ext in ["json", "jsonl", "csv"]:
             potential_path = settings.upload_path / f"{file_id}_converted.{format_ext}"
             if potential_path.exists():
                 download_path = potential_path
@@ -95,11 +96,12 @@ async def get_download_info(file_id: str, settings: Settings = Depends(get_setti
 
         # Get file stats
         file_stats = download_path.stat()
-        content_type = (
-            "application/json"
-            if download_path.suffix == ".json"
-            else "application/jsonl"
-        )
+        if download_path.suffix == ".json":
+            content_type = "application/json"
+        elif download_path.suffix == ".jsonl":
+            content_type = "application/jsonl"
+        else:
+            content_type = "text/csv"
 
         return {
             "filename": download_path.name,
